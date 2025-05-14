@@ -94,5 +94,17 @@
     }
 </script>
 
+<!-- templates/layout.html -->
+<div class="container py-4">
+    {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-info">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+</div>
 
 {% endblock %}
