@@ -319,21 +319,25 @@ def export_pdf():
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer)
     styles = getSampleStyleSheet()
-    story = [Paragraph("Medication Report", styles['Title']), Spacer(1, 24)]
+    story = [Paragraph("📄 Medication Report", styles['Title']), Spacer(1, 24)]
 
     for med in meds:
-        text = f"""
-        <b>Name:</b> {med[0]}<br/>
-        <b>Dosage per Day:</b> {med[1]}<br/>
-        <b>Total Pills:</b> {med[2]}<br/>
-        <b>Last Taken:</b> {med[3]}<br/><br/>
-        """
-        story.append(Paragraph(text, styles['Normal']))
+        name, dosage, total, last_taken = med
+        last_taken_str = last_taken.strftime("%Y-%m-%d") if last_taken else "N/A"
+        med_info = f"<b>Name:</b> {name}<br/><b>Dosage/Day:</b> {dosage}<br/><b>Total Pills:</b> {total}<br/><b>Last Taken:</b> {last_taken_str}"
+        story.append(Paragraph(med_info, styles['Normal']))
         story.append(Spacer(1, 12))
 
     doc.build(story)
-    buffer.seek(0)
-    return send_file(buffer, as_attachment=True, download_name='medication_report.pdf', mimetype='application/pdf')
+
+    pdf_output = buffer.getvalue()
+    buffer.close()
+
+    response = make_response(pdf_output)
+    response.headers['Content-Disposition'] = 'attachment; filename=medication_report.pdf'
+    response.headers['Content-Type'] = 'application/pdf'
+    return response
+
 
 
 @app.route('/logout')
