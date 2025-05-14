@@ -1,0 +1,33 @@
+{% extends "layout.html" %}
+{% block title %}Education & Resources{% endblock %}
+
+{% block content %}
+<div class="card shadow-lg p-4 bg-dark text-white mb-5" style="border-radius: 20px; backdrop-filter: blur(10px); background: rgba(30,30,30,0.85);">
+    <h3 class="mb-3 fw-bold">📚 Medication Education</h3>
+    <p class="mb-4">Explore trusted videos and resources to better understand your medications:</p>
+
+    <!-- Video Section -->
+    <div class="mb-5">
+        <h5 class="fw-semibold text-info">🎥 Video: Understanding Your Medications</h5>
+        <div class="ratio ratio-16x9 rounded shadow-sm overflow-hidden">
+            <iframe src="https://www.youtube.com/embed/dQw4w9WgXcQ" allowfullscreen style="border-radius: 10px;"></iframe>
+        </div>
+    </div>
+
+    <!-- External Resource Links -->
+    <h5 class="fw-semibold text-info mb-3">🌐 Trusted Medication Resources</h5>
+    <ul class="list-group list-group-flush">
+        <li class="list-group-item bg-dark text-white">
+            💊 <a href="https://medlineplus.gov/" target="_blank" class="text-warning fw-semibold text-decoration-none">MedlinePlus - Trusted Medical Info</a>
+        </li>
+        <li class="list-group-item bg-dark text-white">
+            🔍 <a href="https://www.drugs.com/" target="_blank" class="text-warning fw-semibold text-decoration-none">Drugs.com - Medication Guide</a>
+        </li>
+        <li class="list-group-item bg-dark text-white">
+            🧬 <a href="https://www.webmd.com/drugs2/default.htm" target="_blank" class="text-warning fw-semibold text-decoration-none">WebMD - Prescription Drug Information</a>
+        </li>
+    </ul>
+</div>
+
+<a href="/dashboard" class="btn btn-outline-primary btn-lg shadow-sm">← Back to Dashboard</a>
+{% endblock %}

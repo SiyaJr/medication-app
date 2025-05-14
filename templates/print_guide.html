@@ -1,0 +1,44 @@
+{% extends "layout.html" %}
+{% block title %}Print Medication Guide{% endblock %}
+{% block content %}
+<style>
+@media print {
+    body * {
+        visibility: hidden;
+    }
+    .print-container, .print-container * {
+        visibility: visible;
+    }
+    .print-container {
+        position: absolute;
+        left: 0;
+        top: 0;
+    }
+}
+</style>
+
+<div class="print-container">
+    <h2 class="text-center">📋 My Medication Guide</h2>
+    <hr>
+
+    {% for med in medications %}
+    <div class="mb-4">
+        <h4>💊 {{ med.name }}</h4>
+        <p><strong>Dosage:</strong> {{ med.dosage_per_day }} pills/day</p>
+        <p><strong>Schedule:</strong> {{ med.schedule_str }}</p>
+        <p><strong>Total Pills:</strong> {{ med.total_pills }}</p>
+        <p><strong>Description:</strong> {{ med.description or 'No description provided.' }}</p>
+        <p><strong>Last Taken:</strong> {{ med.last_taken or 'Never' }}</p>
+        <p><strong>Important Note:</strong> Always consult your doctor before changing dosage or stopping medication.</p>
+        <hr>
+    </div>
+    {% endfor %}
+</div>
+
+<button onclick="window.print()" class="btn btn-outline-light mb-4">🖨️ Print This Guide</button>
+
+<script>
+document.body.style.background = "#fff";
+document.body.style.color = "#000";
+</script>
+{% endblock %}

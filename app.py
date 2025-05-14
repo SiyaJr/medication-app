@@ -1,0 +1,499 @@
+from flask import Flask, render_template, request, redirect, url_for, session, make_response,flash
+from flask_mysqldb import MySQL
+import bcrypt
+import config
+import email_config
+from flask_mail import Mail, Message
+from apscheduler.schedulers.background import BackgroundScheduler
+from datetime import datetime, date, timedelta
+import threading
+import pandas as pd
+from io import StringIO
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib.styles import getSampleStyleSheet
+import io
+import atexit
+
+# Initialize Flask app
+app = Flask(__name__)
+app.config['MYSQL_HOST'] = config.DB_HOST
+app.config['MYSQL_USER'] = config.DB_USER
+app.config['MYSQL_PASSWORD'] = config.DB_PASSWORD
+app.config['MYSQL_DB'] = config.DB_NAME
+app.config['SECRET_KEY'] = config.SECRET_KEY  # Ensure this is set
+
+# Mail Config
+app.config.update(
+    MAIL_SERVER=email_config.EMAIL_HOST,
+    MAIL_PORT=email_config.EMAIL_PORT,
+    MAIL_USE_TLS=email_config.EMAIL_USE_TLS,
+    MAIL_USERNAME=email_config.EMAIL_HOST_USER,
+    MAIL_PASSWORD=email_config.EMAIL_HOST_PASSWORD
+)
+
+# Initialize extensions
+mysql = MySQL(app)
+mail = Mail(app)
+
+# Global flag to prevent scheduler from starting twice
+scheduler_started = False
+
+# Helper function to format time correctly
+def format_time(value):
+    if isinstance(value, timedelta):
+        total_seconds = int(value.total_seconds())
+        hours, remainder = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}"
+    elif isinstance(value, datetime):
+        return value.strftime("%H:%M")
+    elif isinstance(value, str):
+        # If stored as string in DB, e.g., "09:00:00"
+        return value[:5]
+    return ""
+
+app.jinja_env.filters['format_time'] = format_time  # Add custom filter
+
+
+@app.route('/')
+def home():
+    return render_template('index.html')
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password'].encode('utf-8')
+        hashed = bcrypt.hashpw(password, bcrypt.gensalt())
+
+        cur = mysql.connection.cursor()
+        cur.execute("INSERT INTO users (email, password) VALUES (%s, %s)", (email, hashed))
+        mysql.connection.commit()
+        cur.close()
+        
+        send_reminder_emails(email)
+        
+        return redirect(url_for('home'))
+    return render_template('register.html')
+
+
+@app.route('/login', methods=['POST'])
+def login():
+    email = request.form['email']
+    password = request.form['password'].encode('utf-8')
+
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT * FROM users WHERE email = %s", (email,))
+    user = cur.fetchone()
+    cur.close()
+
+    if user and bcrypt.checkpw(password, user[2].encode('utf-8')):
+        session['user_id'] = user[0]
+        session.permanent = True 
+        return redirect(url_for('dashboard'))
+    else:
+        return """
+            <script>
+                alert("Invalid credentials");
+                window.location.href='/';
+            </script>
+        """
+        
+        
+@app.route('/welcome')
+def welcome():
+    return render_template('welcome.html')       
+
+
+@app.route('/dashboard')
+def dashboard():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+    
+    user_agent = request.headers.get('User-Agent').lower()
+    is_mobile  = 'mobile' in user_agent or 'andriod' in user_agent or 'iphone' in user_agent
+
+    user_id = session['user_id']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT id, name, dosage_per_day, total_pills, schedule, last_taken FROM medications WHERE user_id = %s", (user_id,))
+    meds = cur.fetchall()
+    columns = [desc[0] for desc in cur.description]
+    medications = []
+    
+    for row in meds:
+        med = dict(zip(columns, row))
+        
+        # Format schedule safely
+        if isinstance(med['schedule'], timedelta):
+            seconds = med['schedule'].total_seconds()
+            hours, remainder = divmod(seconds, 3600)
+            minutes, _ = divmod(remainder, 60)
+            med['schedule_str'] = f"{int(hours):02d}:{int(minutes):02d}"
+        elif med['schedule']:
+            med['schedule_str'] = str(med['schedule'])[:5]
+        else:
+            med['schedule_str'] = 'N/A'
+        
+        medications.append(med)
+
+    notifications = []
+    current_time = datetime.now().strftime("%H:%M")
+
+    for med in medications:
+        if med['schedule_str'] != 'N/A' and med['schedule_str'] <= current_time:
+            if med['last_taken'] != date.today() and med['total_pills'] > 0:
+                notifications.append({
+                    "type": "info",
+                    "message": f"⏰ It's time to take {med['name']} ({med['dosage_per_day']} pill(s))."
+                })
+
+        if med['total_pills'] < med['dosage_per_day'] * 3 and med['total_pills'] > 0:
+            notifications.append({
+                "type": "warning",
+                "message": f"⏳ Low pills for {med['name']}. Only {med['total_pills']} left."
+            })
+
+        if med['total_pills'] <= 0:
+            notifications.append({
+                "type": "danger",
+                "message": f"❌ You're out of pills for {med['name']}. Please refill."
+            })
+
+    cur.close()
+    return render_template('dashboard.html', medications=medications, notifications=notifications,is_mobile=is_mobile)
+
+@app.route('/add_medication')
+def add_medication():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+    return render_template('add_medication.html')
+
+
+@app.route('/save_medication', methods=['POST'])
+def save_medication():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    user_id = session['user_id']
+    name = request.form['name']
+    total_pills = request.form['total_pills']
+    dosage_per_day = request.form['dosage_per_day']
+    schedule = request.form['schedule']
+    description = request.form.get('description', '')
+    schedule_time = request.form['schedule']
+    now = datetime.now()
+    hour,minute = map(int,schedule_time.split(':'))
+    next_reminder = now.replace(hour=hour,minute=minute,second=0,microsecond=0)
+    
+    if next_reminder < now:
+        next_reminder+=timedelta(days=1)
+        
+    
+
+    cur = mysql.connection.cursor()
+    cur.execute("""
+        INSERT INTO medications (user_id, name, total_pills, dosage_per_day, schedule, description,next_reminder)
+        VALUES (%s, %s, %s, %s, %s, %s,%s)
+    """, (user_id, name, total_pills, dosage_per_day, schedule, description,next_reminder))
+    mysql.connection.commit()
+    cur.close()
+    return redirect(url_for('dashboard'))
+
+
+@app.route('/take_medication', methods=['POST'])
+def take_medication():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    med_id = request.form['med_id']
+    user_id = session['user_id']
+
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT total_pills, dosage_per_day FROM medications WHERE id = %s AND user_id = %s", (med_id, user_id))
+    med = cur.fetchone()
+
+    if med:
+        total_pills, dosage = med[0], med[1]
+        new_count = total_pills - dosage
+
+        today = date.today()
+
+        if new_count <= 0:
+            # Delete medication if out of pills
+            cur.execute("DELETE FROM medications WHERE id = %s AND user_id = %s", (med_id, user_id))
+            flash("⚠️ You're out of pills. Please refill.")
+        else:
+            cur.execute("""
+                UPDATE medications
+                SET total_pills = %s, last_taken = %s
+                WHERE id = %s AND user_id = %s
+            """, (new_count, today, med_id, user_id))
+            message = ""
+
+        mysql.connection.commit()
+    else:
+        message = """
+            <script>
+                alert('Medication not found or already taken');
+                window.location.href='/dashboard';
+            </script>
+        """
+
+    cur.close()
+    return message or redirect(url_for('dashboard'))
+
+
+@app.route('/statistics')
+def statistics():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    user_id = session['user_id']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT name, dosage_per_day, total_pills, last_taken FROM medications WHERE user_id = %s", (user_id,))
+    meds = cur.fetchall()
+
+    stats = {
+        "total_medications": len(meds),
+        "total_doses_scheduled": 0,
+        "total_doses_taken": 0,
+        "missed_doses": 0,
+        "adherence_rate": 0
+    }
+
+    for med in meds:
+        name, dosage, total_pills, last_taken = med
+        if last_taken:
+            days_prescribed = (datetime.now().date() - last_taken).days
+            scheduled_doses = max(0, days_prescribed * dosage)
+            taken_doses = total_pills // dosage if total_pills else 0
+        else:
+            scheduled_doses = 0
+            taken_doses = 0
+
+        stats["total_doses_scheduled"] += scheduled_doses
+        stats["total_doses_taken"] += taken_doses
+
+    stats["missed_doses"] = max(0, stats["total_doses_scheduled"] - stats["total_doses_taken"])
+
+    if stats["total_doses_scheduled"] > 0:
+        stats["adherence_rate"] = round((stats["total_doses_taken"] / stats["total_doses_scheduled"]) * 100, 2)
+
+    cur.close()
+    return render_template('statistics.html', stats=stats)
+
+
+@app.route('/export_statistics/csv')
+def export_csv():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    user_id = session['user_id']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT name, dosage_per_day, total_pills, last_taken FROM medications WHERE user_id = %s", (user_id,))
+    meds = cur.fetchall()
+    cur.close()
+
+    df = pd.DataFrame(meds, columns=['Name', 'Dosage per Day', 'Total Pills', 'Last Taken'])
+    si = StringIO()
+    df.to_csv(si, index=False)
+    output = make_response(si.getvalue())
+    output.headers["Content-Disposition"] = "attachment; filename=medication_stats.csv"
+    output.headers["Content-type"] = "text/csv"
+    return output
+
+
+@app.route('/export_statistics/pdf')
+def export_pdf():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    user_id = session['user_id']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT name, dosage_per_day, total_pills, last_taken FROM medications WHERE user_id = %s", (user_id,))
+    meds = cur.fetchall()
+    cur.close()
+
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer)
+    styles = getSampleStyleSheet()
+    story = [Paragraph("Medication Report", styles['Title']), Spacer(1, 24)]
+
+    for med in meds:
+        text = f"""
+        <b>Name:</b> {med[0]}<br/>
+        <b>Dosage per Day:</b> {med[1]}<br/>
+        <b>Total Pills:</b> {med[2]}<br/>
+        <b>Last Taken:</b> {med[3]}<br/><br/>
+        """
+        story.append(Paragraph(text, styles['Normal']))
+        story.append(Spacer(1, 12))
+
+    doc.build(story)
+    buffer.seek(0)
+    return send_file(buffer, as_attachment=True, download_name='medication_report.pdf', mimetype='application/pdf')
+
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    return redirect(url_for('home'))
+
+
+# Scheduler for reminders
+def send_reminder_emails():
+    with app.app_context():
+        try:
+            cur = mysql.connection.cursor()
+            today = date.today()
+
+            # Only fetch meds if there are users (optional)
+            cur.execute("SELECT * FROM medications WHERE notify_email = TRUE AND next_reminder <= NOW()")
+            meds = cur.fetchall()
+
+           
+            columns = [desc[0] for desc in cur.description]
+            meds_with_cols = [dict(zip(columns, row)) for row in meds]
+
+            now = datetime.now()
+
+            for med in meds_with_cols:
+                if med['last_taken'] != today and med['total_pills'] > 0:
+                    user_id = med['user_id']
+                    cur.execute("SELECT email FROM users WHERE id = %s", (user_id,))
+                    user = cur.fetchone()
+                    if user:
+                        msg = Message(
+                            subject="⏰ Medication Reminder: " + med['name'],
+                            sender=email_config.EMAIL_HOST_USER,
+                            recipients=[user[0]]
+                        )
+                        msg.body = f"""
+Hi there,
+
+It's time to take your medication "{med['name']}".
+Dosage: {med['dosage_per_day']} pill(s) per day.
+
+Please log in to confirm you've taken it.
+
+Best regards,
+Medication Tracker Team
+                        """
+                        mail.send(msg)
+
+                # Reschedule reminder
+                schedule_str = str(med['schedule'])[:5]
+                hour, minute = map(int, schedule_str.split(':'))
+                next_reminder = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+                if next_reminder <= now:
+                    next_reminder += timedelta(days=1)
+
+                cur.execute("""
+                    UPDATE medications SET next_reminder = %s WHERE id = %s
+                """, (next_reminder, med['id']))
+                mysql.connection.commit()
+
+            cur.close()
+            
+
+        except Exception as e:
+            print(f"Scheduler error: {e}")
+            cur.close()
+
+
+# Start background scheduler
+def start_scheduler():
+    global scheduler_started
+    if not scheduler_started:
+        scheduler = BackgroundScheduler()
+        scheduler.add_job(send_reminder_emails, 'interval', minutes=1)
+        scheduler.start()
+        scheduler_started = True
+
+        # Shut down safely on exit
+        atexit.register(lambda: scheduler.shutdown())
+        
+@app.route('/education')
+def education():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+    return render_template('education.html')     
+
+
+
+@app.route('/safety')
+def safety():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+    return render_template('safety.html')
+
+
+@app.route('/print_guide')
+def print_guide():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    user_id = session['user_id']
+    cur = mysql.connection.cursor()
+    cur.execute("SELECT id, name, dosage_per_day, total_pills, schedule, last_taken, description FROM medications WHERE user_id = %s", (user_id,))
+    meds = cur.fetchall()
+    columns = [desc[0] for desc in cur.description]
+    medications = []
+    
+    for row in meds:
+        med = dict(zip(columns, row))
+        if isinstance(med['schedule'], timedelta):
+            seconds = med['schedule'].total_seconds()
+            hours, remainder = divmod(seconds, 3600)
+            minutes, _ = divmod(remainder, 60)
+            med['schedule_str'] = f"{int(hours):02d}:{int(minutes):02d}"
+        else:
+            med['schedule_str'] = str(med['schedule'])[:5] if med['schedule'] else 'N/A'
+        medications.append(med)
+
+    cur.close()
+    return render_template('print_guide.html', medications=medications)
+
+
+@app.route('/delete_medication', methods=['POST'])
+def delete_medication():
+    if 'user_id' not in session:
+        return redirect(url_for('home'))
+
+    med_id = request.form['med_id']
+    user_id = session['user_id']
+
+    cur = mysql.connection.cursor()
+    cur.execute("DELETE FROM medications WHERE id = %s AND user_id = %s", (med_id, user_id))
+    mysql.connection.commit()
+    cur.close()
+
+    return redirect(url_for('dashboard'))
+    
+    
+    
+def send_welcome_email(email):
+    msg = Message(
+        subject="🎉 Welcome to Medication Tracker!",
+        sender=email_config.EMAIL_HOST_USER,
+        recipients=[email]
+    )
+    msg.body = """
+Hi there,
+
+Welcome to the Medication Tracker App!
+
+We're excited to help you manage your medication schedule more effectively.
+
+Please log in to add your first medication.
+
+Best regards,
+Medication Tracker Team
+"""
+    mail.send(msg)
+
+# Run the app
+if __name__ == '__main__':
+    start_scheduler()
+    app.run(host='0.0.0.0',port=5000,debug=False)

@@ -1,0 +1,89 @@
+{% extends "layout.html" %}
+{% block title %}Medication Safety{% endblock %}
+
+{% block content %}
+<style>
+    .fade-in {
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 0.8s ease-out forwards;
+    }
+    .fade-delay-1 { animation-delay: 0.2s; }
+    .fade-delay-2 { animation-delay: 0.4s; }
+    .fade-delay-3 { animation-delay: 0.6s; }
+    .fade-delay-4 { animation-delay: 0.8s; }
+
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+</style>
+
+<div class="card shadow-lg p-5 mx-auto text-white bg-dark fade-in fade-delay-1" style="max-width: 800px; border-radius: 20px; backdrop-filter: blur(8px); background-color: rgba(33, 37, 41, 0.9);">
+    <h2 class="text-center mb-4 text-warning">⚠️ Medication Overdose & Addiction Warning</h2>
+
+    <div class="alert alert-danger text-dark fw-semibold fade-in fade-delay-2">
+        Never take more than the prescribed dosage. Misuse can result in serious health consequences.
+    </div>
+
+    <div class="mb-4 fade-in fade-delay-2">
+        <h4 class="text-danger">🚫 Risks of Overdose</h4>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item bg-dark text-white">💥 Organ damage (liver, kidneys)</li>
+            <li class="list-group-item bg-dark text-white">⚠️ Severe health complications or death</li>
+            <li class="list-group-item bg-dark text-white">🔀 Dangerous drug interactions</li>
+        </ul>
+    </div>
+
+    <div class="mb-4 fade-in fade-delay-3">
+        <h4 class="text-info">🧠 Addiction & Dependency</h4>
+        <ul class="list-group list-group-flush">
+            <li class="list-group-item bg-dark text-white">🔒 Habit-forming potential</li>
+            <li class="list-group-item bg-dark text-white">🕒 Long-term misuse risks</li>
+            <li class="list-group-item bg-dark text-white">📋 Always follow doctor’s instructions</li>
+        </ul>
+    </div>
+
+    <div class="mb-4 fade-in fade-delay-4">
+        <h4 class="text-success">👨‍⚕️ Always Consult Your Doctor</h4>
+        <div class="alert alert-secondary text-dark">
+            This app helps manage your prescriptions, but it does <strong>not replace professional medical advice</strong>.
+            Always talk to your healthcare provider before changing medication routines.
+        </div>
+    </div>
+
+    <div class="d-flex gap-2 mt-4 fade-in fade-delay-4">
+        <a href="/dashboard" class="btn btn-outline-light btn-lg rounded-pill w-100">⬅️ Back to Dashboard</a>
+        <button type="button" class="btn btn-danger btn-lg rounded-pill w-100" data-bs-toggle="modal" data-bs-target="#emergencyModal">
+            🚨 Emergency Info
+        </button>
+    </div>
+</div>
+
+<!-- Emergency Modal -->
+<div class="modal fade" id="emergencyModal" tabindex="-1" aria-labelledby="emergencyModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content bg-dark text-white">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title text-danger" id="emergencyModalLabel">🚨 Emergency Instructions</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>If you or someone you know is experiencing a suspected overdose, follow these steps immediately:</p>
+        <ul class="list-group list-group-flush mb-3">
+          <li class="list-group-item bg-dark text-white">📞 Call emergency services: <a href="tel:0800123456" class="text-info">0800 123 456</a></li>
+          <li class="list-group-item bg-dark text-white">🧍‍♂️ Keep the person awake and sitting upright</li>
+          <li class="list-group-item bg-dark text-white">🚑 Stay with them until help arrives</li>
+          <li class="list-group-item bg-dark text-white">💬 Tell emergency responders what medications were taken</li>
+        </ul>
+        <p class="text-warning">⚠️ Never delay in seeking help during an overdose situation.</p>
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-outline-light" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

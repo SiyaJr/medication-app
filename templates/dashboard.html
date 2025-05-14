@@ -1,0 +1,98 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="fw-bold">🧠 Your Medications</h2>
+    <a href="/add_medication" class="btn btn-success btn-lg shadow-sm">+ Add</a>
+</div>
+
+<!-- Emergency Button -->
+<a href="tel:0800123456" class="btn btn-danger w-100 mb-4 fw-bold fs-5 py-3 shadow-sm">
+    🚨 Call Emergency Services
+</a>
+
+<!-- Notification Alerts -->
+{% if notifications %}
+    {% for note in notifications %}
+        <div class="alert alert-{{ note.type }} alert-dismissible fade show shadow-sm" role="alert">
+            {{ note.message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    {% endfor %}
+{% endif %}
+
+<!-- Medication Cards -->
+<div class="row g-3">
+    {% for med in medications %}
+    <div class="col-12 col-md-6 col-lg-4">
+        <div class="card bg-dark text-white shadow-lg" style="border-radius: 20px; backdrop-filter: blur(12px); background: rgba(30, 30, 30, 0.85);">
+            <div class="card-body">
+                <h4 class="card-title text-info">{{ med.name }}</h4>
+                <p class="card-text"><i class="bi bi-capsule"></i> <strong>Dosage:</strong> {{ med.dosage_per_day }} pill(s)/day</p>
+                <p class="card-text"><i class="bi bi-clock"></i> <strong>Schedule:</strong> 
+                    <span class="med-schedule text-warning" data-time="{{ med.schedule_str }}">{{ med.schedule_str }}</span>
+                </p>
+                <p class="card-text"><i class="bi bi-box-seam"></i> <strong>Pills Left:</strong> {{ med.total_pills }}</p>
+
+                {% if med.total_pills > 0 %}
+                <form action="/take_medication" method="POST" class="mt-3">
+                    <input type="hidden" name="med_id" value="{{ med.id }}">
+                    <button class="btn btn-outline-success btn-sm w-100">✅ Took Pills</button>
+                </form>
+
+                <form action ="/delete_medication" method="POST">
+
+                    <input type="hidden" name="med_id" value="{{med.id}}">
+                    <button class="btn btn-sm btn-outline-danger">🗑️ Remove</button>
+
+                </form>
+
+                {% else %}
+                <p class="text-danger fw-semibold mt-3">⚠️ Out of pills!</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Countdown Reminder -->
+{% if medications %}
+<div class="card bg-secondary text-white mt-5 shadow" style="border-radius: 20px;">
+    <div class="card-body text-center">
+        <h5 class="fw-bold">⏱️ Next Medication Reminder</h5>
+        <p id="countdown" class="fs-3 text-warning fw-semibold">Loading...</p>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    // Example countdown logic — adapt as needed
+    const nextTime = document.querySelector('.med-schedule')?.dataset.time;
+    if (nextTime) {
+        const countdownEl = document.getElementById('countdown');
+        const interval = setInterval(() => {
+            const now = new Date();
+            const target = new Date();
+            const [hours, minutes] = nextTime.split(':');
+            target.setHours(+hours, +minutes, 0, 0);
+
+            if (target < now) target.setDate(target.getDate() + 1); // next day
+
+            const diff = target - now;
+            if (diff <= 0) {
+                countdownEl.textContent = "It's time!";
+                clearInterval(interval);
+            } else {
+                const h = Math.floor(diff / (1000 * 60 * 60));
+                const m = Math.floor((diff / (1000 * 60)) % 60);
+                const s = Math.floor((diff / 1000) % 60);
+                countdownEl.textContent = `${h}h ${m}m ${s}s`;
+            }
+        }, 1000);
+    }
+</script>
+
+
+{% endblock %}

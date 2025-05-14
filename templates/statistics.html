@@ -1,0 +1,81 @@
+{% extends "layout.html" %}
+{% block title %}Statistics{% endblock %}
+
+{% block content %}
+<style>
+  .fade-in {
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.8s ease-out forwards;
+  }
+  .fade-1 { animation-delay: 0.2s; }
+  .fade-2 { animation-delay: 0.4s; }
+  .fade-3 { animation-delay: 0.6s; }
+  .fade-4 { animation-delay: 0.8s; }
+
+  @keyframes fadeIn {
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .card-hover:hover {
+    transform: scale(1.02);
+    transition: transform 0.3s ease;
+  }
+</style>
+
+<div class="text-center fade-in fade-1">
+  <h2 class="mb-4">📊 Medication Adherence</h2>
+  <button onclick="toggleDarkMode()" class="btn btn-outline-light btn-sm mb-3 rounded-pill">🌙 Toggle Dark Mode</button>
+</div>
+
+<div class="row text-center fade-in fade-2">
+  <div class="col-md-3 mb-4">
+    <div class="card bg-primary text-white shadow-lg rounded card-hover">
+      <div class="card-body">
+        <h5>Total Medications</h5>
+        <p class="fs-3">{{ stats.total_medications }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-success text-white shadow-lg rounded card-hover">
+      <div class="card-body">
+        <h5>Doses Taken</h5>
+        <p class="fs-3">{{ stats.total_doses_taken }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-danger text-white shadow-lg rounded card-hover">
+      <div class="card-body">
+        <h5>Missed Doses</h5>
+        <p class="fs-3">{{ stats.missed_doses }}</p>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3 mb-4">
+    <div class="card bg-info text-dark shadow-lg rounded card-hover">
+      <div class="card-body">
+        <h5>Adherence Rate</h5>
+        <p class="fs-3">{{ stats.adherence_rate }}%</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p class="text-muted fade-in fade-3">Based on your recorded medication history.</p>
+
+<div class="d-flex gap-3 fade-in fade-3 mb-4 flex-wrap">
+  <a href="/export_statistics/csv" class="btn btn-outline-primary rounded-pill px-4">
+    📥 Export as CSV
+  </a>
+  <a href="/export_statistics/pdf" class="btn btn-outline-danger rounded-pill px-4">
+    📄 Export as PDF
+  </a>
+</div>
+
+<a href="/dashboard" class="btn btn-outline-secondary mt-3 rounded-pill fade-in fade-4">⬅ Back to Dashboard</a>
+{% endblock %}

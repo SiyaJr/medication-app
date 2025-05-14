@@ -1,0 +1,65 @@
+{% extends "layout.html" %}
+{% block title %}Add Medication{% endblock %}
+{% block content %}
+
+<!-- Success Toast -->
+{% if message %}
+<div class="toast-container position-fixed bottom-0 end-0 p-3 notification">
+  <div class="toast show align-items-center text-white bg-success border-0 shadow" role="alert">
+    <div class="d-flex">
+      <div class="toast-body fw-semibold">
+        ✅ {{ message }}
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card shadow-lg p-5 text-white mx-auto" style="max-width: 600px; border-radius: 20px; background: rgba(0, 0, 0, 0.5); backdrop-filter: blur(12px);">
+    <h2 class="text-center mb-4 fw-bold" style="letter-spacing: 1px;">➕ Add New Medication</h2>
+    <form action="/save_medication" method="post" novalidate>
+        
+        <div class="form-group mb-4">
+            <label class="form-label fs-5">Medication Name</label>
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-secondary text-white"><i class="bi bi-capsule"></i></span>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Paracetamol" required>
+            </div>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="form-label fs-5">Total Pills</label>
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-secondary text-white"><i class="bi bi-123"></i></span>
+                <input type="number" name="total_pills" class="form-control" placeholder="e.g. 30" required>
+            </div>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="form-label fs-5">Dosage per Day</label>
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-secondary text-white"><i class="bi bi-calendar-check"></i></span>
+                <input type="number" name="dosage_per_day" class="form-control" placeholder="e.g. 2" required>
+            </div>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="form-label fs-5">Time to Take</label>
+            <div class="input-group input-group-lg">
+                <span class="input-group-text bg-secondary text-white"><i class="bi bi-clock"></i></span>
+                <input type="time" name="schedule" class="form-control" required>
+            </div>
+        </div>
+
+        <div class="form-group mb-4">
+            <label class="form-label fs-5">Description (optional)</label>
+            <textarea name="description" rows="4" class="form-control form-control-lg" placeholder="e.g. Take with food. Avoid alcohol."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success btn-lg w-100 shadow-sm" style="border-radius: 30px; transition: all 0.3s ease;">
+            💾 Save Medication
+        </button>
+    </form>
+</div>
+{% endblock %}
