@@ -4,6 +4,5 @@ bcrypt==4.1.0
 Flask-Mail==0.9.1
 APScheduler==3.10.4
 reportlab==4.0.9
-pandas==2.1.0
 gunicorn==21.2.0
 Flask-MySQLdb==1.0.1
