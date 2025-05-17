@@ -25,4 +25,4 @@ A web-based medication tracker built with:
 
 # HERE IS THE LINK TO THE PROJECT DEPLOYED ON A ONLINE SERVER 
 It can be accessed to test 
-Link : https://medication-app-1-jbyr.onrender.com
+Link : https://medication-app2-2.onrender.com
