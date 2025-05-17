@@ -22,3 +22,7 @@ A web-based medication tracker built with:
 - Statistics Dashboard
 - CSV/PDF Export
 - Dark Mode Toggle
+
+# HERE IS THE LINK TO THE PROJECT DEPLOYED ON A ONLINE SERVER 
+It can be accessed to test 
+Link : https://medication-app-1-jbyr.onrender.com
