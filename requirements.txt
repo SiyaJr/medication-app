@@ -1,5 +1,5 @@
 Flask==2.3.3
-Flask-MySQLdb==1.0.1
+PyMySQL==1.1.0
 bcrypt==4.1.0
 Flask-Mail==0.9.1
 APScheduler==3.10.4

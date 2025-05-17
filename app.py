@@ -21,7 +21,7 @@ app.config['MYSQL_USER'] = config.DB_USER
 app.config['MYSQL_PASSWORD'] = config.DB_PASSWORD
 app.config['MYSQL_DB'] = config.DB_NAME
 app.config['SECRET_KEY'] = config.SECRET_KEY
-app.config['DATABASE_URL']=config.DATABASE_URL  # Ensure this is set
+
 
 # Mail Config
 app.config.update(
@@ -73,7 +73,7 @@ def register():
         mysql.connection.commit()
         cur.close()
         
-        send_reminder_emails(email)
+        send_welcome_email(email)
         
         return redirect(url_for('home'))
     return render_template('register.html')
