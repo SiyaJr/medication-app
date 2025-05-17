@@ -236,7 +236,7 @@ def take_medication():
     else:
         message = """
             <script>
-                alert('Medication not found or already taken');
+                alert('Medication not found or already taken click okay');
                 window.location.href='/dashboard';
             </script>
         """
